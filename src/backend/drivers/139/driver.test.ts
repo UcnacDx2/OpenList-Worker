@@ -78,7 +78,7 @@ test("Yun139Driver instantiation and methods", async () => {
 })
 
 
-test("Yun139 refreshes a near-expiry token through the PC refreshToken API", async () => {
+test("Yun139 refreshes a near-expiry token without requiring response Set-Cookie", async () => {
   const expiresAt = Date.now() + 5 * 24 * 60 * 60 * 1000
   const oldToken = `old-token|1|RCS|${expiresAt}|opaque`
   const newToken = `new-token|1|RCS|${Date.now() + 30 * 24 * 60 * 60 * 1000}|opaque`
@@ -107,7 +107,6 @@ test("Yun139 refreshes a near-expiry token through the PC refreshToken API", asy
           status: 200,
           headers: {
             "content-type": "application/json",
-            "set-cookie": "mc_pac=auto-pac; Path=/; Secure",
           },
         },
       )
@@ -140,7 +139,7 @@ test("Yun139 refreshes a near-expiry token through the PC refreshToken API", asy
     assert.equal(sentHeaders.authorization, `Basic ${Buffer.from(`pc:${account}:${oldToken}`).toString("base64")}`)
     assert.equal(sentHeaders.Cookie, undefined)
     assert.equal(sentHeaders["x-yun-uni"], "test-user-domain")
-    assert.equal(addition.pc_cloud_cookies, "mc_pac=auto-pac")
+    assert.equal(addition.pc_cloud_cookies, undefined)
 
     assert.equal(
       Buffer.from(addition.authorization, "base64").toString("utf8"),
