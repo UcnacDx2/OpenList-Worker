@@ -50,17 +50,60 @@ export function formatTime(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
+export function parseSetCookieHeaders(headers: Headers): string[] {
+  const withGetSetCookie = headers as Headers & {
+    getSetCookie?: () => string[]
+  }
+  if (typeof withGetSetCookie.getSetCookie === "function") {
+    return withGetSetCookie.getSetCookie()
+  }
+
+  // Fallback for runtimes without Headers.getSetCookie(). Split only at a
+  // comma that starts a new cookie pair, not the comma in an Expires date.
+  const combined = headers.get("set-cookie")
+  return combined ? combined.split(/,(?=\s*[^;,\s]+=)/g).map((s) => s.trim()) : []
+}
+
+export function mergeCookieHeader(
+  existing: string,
+  setCookieHeaders: string[],
+): string {
+  const cookies = new Map<string, string>()
+  for (const part of existing.replace(/^cookie:\s*/i, "").split(";")) {
+    const item = part.trim()
+    const equals = item.indexOf("=")
+    if (equals > 0) cookies.set(item.slice(0, equals).trim(), item.slice(equals + 1).trim())
+  }
+
+  for (const header of setCookieHeaders) {
+    const firstPart = header.split(";", 1)[0].trim()
+    const equals = firstPart.indexOf("=")
+    if (equals <= 0) continue
+    const name = firstPart.slice(0, equals).trim()
+    const value = firstPart.slice(equals + 1).trim()
+    if (!name) continue
+    if (/\bmax-age\s*=\s*0\b/i.test(header)) {
+      cookies.delete(name)
+    } else {
+      cookies.set(name, value)
+    }
+  }
+
+  return [...cookies.entries()].map(([name, value]) => \`\${name}=\${value}\`).join("; ")
+}
+
+
 export class Yun139ApiClient {
   private addition: Yun139Addition
   public personalHost = "https://yun.139.com"
   public familyHost = "https://yun.139.com"
   public groupHost = "https://yun.139.com"
   public account = ""
-  private onAuthorizationRefresh?: (authorization: string) => Promise<void>
+  private onAuthorizationRefresh?: (authorization: string, pcCloudCookies?: string) => Promise<void>
 
   constructor(
     addition: Yun139Addition,
-    onAuthorizationRefresh?: (authorization: string) => Promise<void>,
+    onAuthorizationRefresh?: (authorization: string, pcCloudCookies?: string) => Promise<void>,
   ) {
     this.addition = addition
     this.onAuthorizationRefresh = onAuthorizationRefresh
@@ -248,6 +291,8 @@ export class Yun139ApiClient {
       "x-yun-uni": userDomainId,
     }
 
+    // This is an internal cookie jar. Users do not enter PC cookies in the
+    // storage form; cookies are sent only if a previous response supplied them.
     const pcCookies = (this.addition.pc_cloud_cookies || "")
       .trim()
       .replace(/^cookie:\s*/i, "")
@@ -261,6 +306,12 @@ export class Yun139ApiClient {
         body: JSON.stringify({ userDomainId }),
       },
     )
+
+    const responseCookies = parseSetCookieHeaders(response.headers)
+    const mergedCookies = mergeCookieHeader(pcCookies, responseCookies)
+    if (mergedCookies && mergedCookies !== pcCookies) {
+      this.addition.pc_cloud_cookies = mergedCookies
+    }
 
     if (!response.ok) {
       const body = await response.text()
@@ -285,7 +336,7 @@ export class Yun139ApiClient {
       CryptoJS.enc.Utf8.parse(`${pieces[0]}:${account}:${newToken}`),
     )
     this.account = account
-    await this.onAuthorizationRefresh?.(this.addition.authorization)
+    await this.onAuthorizationRefresh?.(this.addition.authorization, this.addition.pc_cloud_cookies)
   }
 
   async init(): Promise<void> {
