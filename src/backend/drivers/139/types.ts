@@ -18,6 +18,7 @@ export interface Yun139Addition {
   link_id?: string
   cloud_id?: string
   user_domain_id?: string
+  /** Internal cookie jar captured from server responses; not a user-facing setting. */
   pc_cloud_cookies?: string
   custom_upload_part_size?: number
   report_real_size?: boolean
