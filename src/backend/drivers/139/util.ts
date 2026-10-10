@@ -223,7 +223,7 @@ export class Yun139ApiClient {
       authorization: authHeader,
       cp_version: "8.9.1.20260929",
       "x-yun-api-version": "v1",
-      "x-yun-app-channel": "10000034",
+      "x-yun-app-channel": "10200153",
       "x-yun-op-type": "1",
       "x-yun-svc-type": "1",
       "x-yun-module-type": "1",
