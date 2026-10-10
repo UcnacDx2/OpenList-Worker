@@ -9,6 +9,7 @@ import {
   PersonalListResp,
   PersonalDownloadResp,
   PersonalFileItem,
+  Yun139TokenRefreshResp,
 } from "./types"
 
 export function encodeURIComponentCustom(str: string): string {
@@ -169,10 +170,114 @@ export class Yun139ApiClient {
     return json as T
   }
 
+  /**
+   * Refresh the PC authorization token before it enters its final 15 days.
+   * The Worker port has no driver-level cron, so this check runs at init.
+   */
+  private async refreshAuthorizationIfNeeded(): Promise<void> {
+    const auth = this.getAuthString()
+    let decoded: string
+    try {
+      decoded = CryptoJS.enc.Base64.parse(auth).toString(CryptoJS.enc.Utf8)
+    } catch {
+      // Keep the previous behavior for non-standard authorization values.
+      return
+    }
+
+    const pieces = decoded.split(":")
+    if (pieces.length < 3) return
+
+    const token = pieces.slice(2).join(":")
+    const tokenFields = token.split("|")
+    const expiresAt = Number(tokenFields[3])
+    if (!Number.isFinite(expiresAt) || expiresAt <= 0) return
+
+    const refreshWindowMs = 15 * 24 * 60 * 60 * 1000
+    if (expiresAt - Date.now() > refreshWindowMs) return
+
+    const userDomainId = (this.addition.user_domain_id || "").trim()
+    if (!userDomainId) {
+      throw new Error(
+        "139 Cloud token is near expiry; configure user_domain_id to use the PC refreshToken API",
+      )
+    }
+
+    const account = pieces[1]
+    const pcVersion = "8.9.1.20260929"
+    // A deterministic synthetic PC identity prevents every isolate from
+    // inventing a different device ID. The real PC cookie can be supplied
+    // through pc_cloud_cookies when the provider requires the original session.
+    const deviceName = CryptoJS.enc.Base64.stringify(
+      CryptoJS.enc.Utf8.parse("DESKTOP-OPENLIST"),
+    )
+    const deviceId = `${md5(`openlist-139:${account}`).toUpperCase()}-ENDIN`
+    const language = CryptoJS.enc.Base64.stringify(
+      CryptoJS.enc.Utf8.parse("Chinese (Simplified)"),
+    )
+    const deviceInfo = `||11|${pcVersion}|PC|${deviceName}|${deviceId}|| Windows 10 (10.0.19044.7725)|1920X1080|${language}|||`
+    const authHeader = `Basic ${auth}`
+
+    const headers: Record<string, string> = {
+      Accept: "*/*",
+      "Accept-Language": "zh-CN",
+      "Content-Type": "application/json;charset=UTF-8",
+      "User-Agent": `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) mCloud/${pcVersion} Chrome/108.0.5359.215 Electron/22.3.0 Safari/537.36`,
+      app_auth: authHeader,
+      app_cp: "pc",
+      authorization: authHeader,
+      cp_version: pcVersion,
+      "x-deviceinfo": deviceInfo,
+      "x-exproute-code": `routeCode=${account},type=2`,
+      "x-yun-api-version": "v1",
+      "x-yun-app-channel": "10200153",
+      "x-yun-client-info": deviceInfo,
+      "x-yun-device-id": deviceId,
+      "x-yun-market-source": "000",
+      "x-yun-module-type": "100",
+      "x-yun-op-type": "1",
+      "x-yun-svc-type": "1",
+      "x-yun-uni": userDomainId,
+    }
+
+    const pcCookies = (this.addition.pc_cloud_cookies || "").trim()
+    if (pcCookies) headers.Cookie = pcCookies
+
+    const response = await fetch(
+      "https://user-njs.yun.139.com/user/auth/refreshToken",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ userDomainId }),
+      },
+    )
+
+    if (!response.ok) {
+      const body = await response.text()
+      throw new Error(
+        `139 Cloud PC token refresh failed (${response.status}): ${body}`,
+      )
+    }
+
+    const result = (await response.json()) as Yun139TokenRefreshResp
+    const newToken = result.data?.token?.trim()
+    if (!result.success || result.code !== "0000" || !newToken) {
+      throw new Error(
+        `139 Cloud PC token refresh failed: code=${result.code || "unknown"}, message=${result.message || "empty token"}`,
+      )
+    }
+
+    this.addition.authorization = CryptoJS.enc.Base64.stringify(
+      CryptoJS.enc.Utf8.parse(`${pieces[0]}:${account}:${newToken}`),
+    )
+    this.account = account
+  }
+
   async init(): Promise<void> {
     if (!this.addition.authorization) {
       throw new Error("139 Cloud Authorization is required")
     }
+
+    await this.refreshAuthorizationIfNeeded()
 
     try {
       const routeRes = await this.request<QueryRoutePolicyResp>(
