@@ -404,7 +404,7 @@ adminRouter.post("/storage/update", async (c) => {
             : db.storages[idx].addition || {}
         const nextAddition = JSON.parse(updatedAddition || "{}")
         if (
-          nextAddition.pc_cloud_cookies === undefined &&
+          !nextAddition.pc_cloud_cookies &&
           previousAddition.pc_cloud_cookies !== undefined
         ) {
           nextAddition.pc_cloud_cookies = previousAddition.pc_cloud_cookies
