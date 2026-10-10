@@ -10,23 +10,17 @@ import { Yun139ApiClient } from "./util"
 export class Yun139Driver implements StorageDriver {
   private addition: Yun139Addition
   private client: Yun139ApiClient
-  private onAuthorizationRefresh?: (authorization: string) => Promise<void>
 
   constructor(
     addition: Yun139Addition,
     onAuthorizationRefresh?: (authorization: string) => Promise<void>,
   ) {
     this.addition = addition
-    this.client = new Yun139ApiClient(addition)
-    this.onAuthorizationRefresh = onAuthorizationRefresh
+    this.client = new Yun139ApiClient(addition, onAuthorizationRefresh)
   }
 
   async init(): Promise<void> {
     await this.client.init()
-    const authorization = this.client.consumePendingAuthorization()
-    if (authorization && this.onAuthorizationRefresh) {
-      await this.onAuthorizationRefresh(authorization)
-    }
   }
 
   private cleanPath(p: string): string {
