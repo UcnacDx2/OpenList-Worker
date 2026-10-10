@@ -262,9 +262,8 @@ export class Yun139ApiClient {
     }
 
     this.addition.authorization = CryptoJS.enc.Base64.stringify(
-      CryptoJS.enc.Utf8.parse(`${pieces[0]}:${account}:${newToken}`),
+      CryptoJS.enc.Utf8.parse(`${pieces[0]}:${this.account}:${newToken}`),
     )
-    this.account = account
     await this.onAuthorizationRefresh?.(this.addition.authorization)
   }
 
