@@ -1,3 +1,13 @@
+export interface Yun139TokenRefreshResp {
+  success: boolean
+  code: string
+  message?: string
+  data?: {
+    token?: string
+    expireTime?: number
+  }
+}
+
 export interface Yun139Addition {
   authorization: string
   username?: string
@@ -8,6 +18,7 @@ export interface Yun139Addition {
   link_id?: string
   cloud_id?: string
   user_domain_id?: string
+  pc_cloud_cookies?: string
   custom_upload_part_size?: number
   report_real_size?: boolean
   use_large_thumbnail?: boolean
