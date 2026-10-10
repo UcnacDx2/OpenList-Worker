@@ -56,6 +56,7 @@ export class Yun139ApiClient {
   public familyHost = "https://yun.139.com"
   public groupHost = "https://yun.139.com"
   public account = ""
+  private pendingAuthorization: string | null = null
 
   constructor(addition: Yun139Addition) {
     this.addition = addition
@@ -96,6 +97,12 @@ export class Yun139ApiClient {
 
   isGroup(): boolean {
     return this.addition.type === "group"
+  }
+
+  consumePendingAuthorization(): string | null {
+    const authorization = this.pendingAuthorization
+    this.pendingAuthorization = null
+    return authorization
   }
 
   getHost(): string {
@@ -269,6 +276,7 @@ export class Yun139ApiClient {
     this.addition.authorization = CryptoJS.enc.Base64.stringify(
       CryptoJS.enc.Utf8.parse(`${pieces[0]}:${account}:${newToken}`),
     )
+    this.pendingAuthorization = this.addition.authorization
     this.account = account
   }
 
