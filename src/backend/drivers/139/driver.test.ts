@@ -2,7 +2,25 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { Yun139Driver } from "./driver"
 import { Yun139Addition } from "./types"
-import { calSign, Yun139ApiClient } from "./util"
+import { calSign, mergeCookieHeader, parseSetCookieHeaders, Yun139ApiClient } from "./util"
+
+test("139 PC cookie jar merges Set-Cookie without manual input", () => {
+  assert.equal(
+    mergeCookieHeader("mc_pac=old; mc_at=old-at", [
+      "mc_pac=new; Path=/; Secure",
+      "mc_bt=new-bt; Path=/",
+      "mc_at=; Max-Age=0; Path=/",
+    ]),
+    "mc_pac=new; mc_bt=new-bt",
+  )
+
+  const headers = new Headers()
+  headers.append("set-cookie", "mc_pac=new-pac; Path=/; Secure")
+  assert.deepEqual(
+    parseSetCookieHeaders(headers),
+    ["mc_pac=new-pac; Path=/; Secure"],
+  )
+})
 
 test("Yun139 calculation and signing", () => {
   const sign = calSign("{}", "2026-08-24 16:00:00", "1234567890abcdef")
@@ -68,7 +86,6 @@ test("Yun139 refreshes a near-expiry token through the PC refreshToken API", asy
   const addition: Yun139Addition = {
     authorization: Buffer.from(`pc:${account}:${oldToken}`).toString("base64"),
     user_domain_id: "test-user-domain",
-    pc_cloud_cookies: "mc_at=test-at; mc_bt=test-bt",
     type: "personal_new",
   }
 
@@ -86,7 +103,13 @@ test("Yun139 refreshes a near-expiry token through the PC refreshToken API", asy
           message: "请求成功",
           data: { token: newToken, expireTime: 2592000 },
         }),
-        { status: 200, headers: { "content-type": "application/json" } },
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "set-cookie": "mc_pac=auto-pac; Path=/; Secure",
+          },
+        },
       )
     }
 
@@ -115,8 +138,9 @@ test("Yun139 refreshes a near-expiry token through the PC refreshToken API", asy
 
     const sentHeaders = calls[0]?.init?.headers as Record<string, string>
     assert.equal(sentHeaders.authorization, `Basic ${Buffer.from(`pc:${account}:${oldToken}`).toString("base64")}`)
-    assert.equal(sentHeaders.Cookie, addition.pc_cloud_cookies)
+    assert.equal(sentHeaders.Cookie, undefined)
     assert.equal(sentHeaders["x-yun-uni"], "test-user-domain")
+    assert.equal(addition.pc_cloud_cookies, "mc_pac=auto-pac")
 
     assert.equal(
       Buffer.from(addition.authorization, "base64").toString("utf8"),
