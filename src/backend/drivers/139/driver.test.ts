@@ -122,6 +122,7 @@ test("Yun139 refreshes a near-expiry token with no Cookie header", async () => {
     const sentHeaders = calls[0]?.init?.headers as Record<string, string>
     assert.equal(sentHeaders.authorization, `Basic ${Buffer.from(`pc:${account}:${oldToken}`).toString("base64")}`)
     assert.equal(Object.keys(sentHeaders).some((key) => key.toLowerCase() === "cookie"), false)
+    assert.equal(calls[0]?.init?.credentials, "omit")
     assert.equal(sentHeaders["x-yun-uni"], "test-user-domain")
 
     assert.equal(
