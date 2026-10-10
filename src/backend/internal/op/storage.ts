@@ -987,7 +987,7 @@ async function createDriver(
     normDriver.includes("139")
   ) {
     const addition = parseAddition(storageConfig)
-    driver = new Yun139Driver(addition, async (authorization) => {
+    driver = new Yun139Driver(addition, async (authorization, pcCloudCookies) => {
       try {
         // Keep the request config in sync; admin create/update may save it
         // immediately after driver initialization completes.
@@ -998,6 +998,7 @@ async function createDriver(
         storageConfig.addition = JSON.stringify({
           ...configAddition,
           authorization,
+          ...(pcCloudCookies ? { pc_cloud_cookies: pcCloudCookies } : {}),
         })
 
         const db = await getDb()
@@ -1010,6 +1011,7 @@ async function createDriver(
             ? JSON.parse(st.addition || "{}")
             : st.addition || {}
         stAddition.authorization = authorization
+        if (pcCloudCookies) stAddition.pc_cloud_cookies = pcCloudCookies
         st.addition = JSON.stringify(stAddition)
 
         // The admin update path performs its own final save; keep its input
