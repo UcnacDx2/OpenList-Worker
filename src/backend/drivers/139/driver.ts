@@ -20,6 +20,10 @@ export class Yun139Driver implements StorageDriver {
     await this.client.init()
   }
 
+  consumePendingAuthorization(): string | null {
+    return this.client.consumePendingAuthorization()
+  }
+
   private cleanPath(p: string): string {
     const s = "/" + (p || "").split("/").filter(Boolean).join("/")
     return s === "/" ? "/" : s
