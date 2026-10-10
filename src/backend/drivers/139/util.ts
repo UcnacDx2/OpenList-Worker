@@ -211,40 +211,24 @@ export class Yun139ApiClient {
       )
     }
 
-    const account = pieces[1]
-    const pcVersion = "8.9.1.20260929"
-    // A deterministic synthetic PC identity prevents every isolate from
-    // inventing a different device ID.
-    const deviceName = CryptoJS.enc.Base64.stringify(
-      CryptoJS.enc.Utf8.parse("DESKTOP-OPENLIST"),
-    )
-    const deviceId = `${md5(`openlist-139:${account}`).toUpperCase()}-ENDIN`
-    const language = CryptoJS.enc.Base64.stringify(
-      CryptoJS.enc.Utf8.parse("Chinese (Simplified)"),
-    )
-    const deviceInfo = `||11|${pcVersion}|PC|${deviceName}|${deviceId}|| Windows 10 (10.0.19044.7725)|1920X1080|${language}|||`
     const authHeader = `Basic ${auth}`
 
+    // Match the minimal header set from the successful PowerShell request.
+    // Do not send Cookie or unverified synthetic PC/device headers.
     const headers: Record<string, string> = {
-      Accept: "*/*",
-      "Accept-Language": "zh-CN",
-      "Content-Type": "application/json;charset=UTF-8",
-      "User-Agent": `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) mCloud/${pcVersion} Chrome/108.0.5359.215 Electron/22.3.0 Safari/537.36`,
+      Accept: "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       app_auth: authHeader,
-      app_cp: "pc",
+      app_cp: "1",
       authorization: authHeader,
-      cp_version: pcVersion,
-      "x-deviceinfo": deviceInfo,
-      "x-exproute-code": `routeCode=${account},type=2`,
-      "x-yun-api-version": "v1",
-      "x-yun-app-channel": "10200153",
-      "x-yun-client-info": deviceInfo,
-      "x-yun-device-id": deviceId,
-      "x-yun-market-source": "000",
-      "x-yun-module-type": "100",
+      cp_version: "8.9.1.20260929",
+      "x-yun-api-version": "1.0.0",
+      "x-yun-app-channel": "1000000001",
       "x-yun-op-type": "1",
       "x-yun-svc-type": "1",
-      "x-yun-uni": userDomainId,
+      "x-yun-module-type": "1",
+      "x-yun-market-source": "1",
+      "x-yun-client-info": "PC",
     }
 
     const response = await fetch(
