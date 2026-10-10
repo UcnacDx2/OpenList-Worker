@@ -111,7 +111,10 @@ test("Yun139 refreshes a near-expiry token with no Cookie header", async () => {
   }) as typeof fetch
 
   try {
-    const client = new Yun139ApiClient(addition)
+    const refreshedAuthorizations: string[] = []
+    const client = new Yun139ApiClient(addition, async (authorization) => {
+      refreshedAuthorizations.push(authorization)
+    })
     await client.init()
 
     assert.equal(calls[0]?.url, "https://user-njs.yun.139.com/user/auth/refreshToken")
@@ -136,6 +139,7 @@ test("Yun139 refreshes a near-expiry token with no Cookie header", async () => {
       Buffer.from(addition.authorization, "base64").toString("utf8"),
       `pc:${account}:${newToken}`,
     )
+    assert.deepEqual(refreshedAuthorizations, [addition.authorization])
   } finally {
     globalThis.fetch = originalFetch
   }
