@@ -388,33 +388,12 @@ adminRouter.post("/storage/update", async (c) => {
   if (idx !== -1) {
     const rawDriver = body.driver || db.storages[idx].driver
     const normalizedDriver = normalizeDriver(rawDriver)
-    let updatedAddition = ensureStorageAdditionDeviceId(
+    const updatedAddition = ensureStorageAdditionDeviceId(
       normalizedDriver,
       body.addition !== undefined
         ? body.addition
         : db.storages[idx].addition || "{}",
     )
-    // pc_cloud_cookies is an internal cookie jar, intentionally absent from
-    // the form schema. Preserve it if a user edits an unrelated storage field.
-    if (normalizedDriver.toLowerCase().includes("139")) {
-      try {
-        const previousAddition =
-          typeof db.storages[idx].addition === "string"
-            ? JSON.parse(db.storages[idx].addition || "{}")
-            : db.storages[idx].addition || {}
-        const nextAddition = JSON.parse(updatedAddition || "{}")
-        if (
-          !nextAddition.pc_cloud_cookies &&
-          previousAddition.pc_cloud_cookies !== undefined
-        ) {
-          nextAddition.pc_cloud_cookies = previousAddition.pc_cloud_cookies
-          updatedAddition = JSON.stringify(nextAddition)
-        }
-      } catch {
-        // Leave the regular storage validation path responsible for malformed JSON.
-      }
-    }
-
     const updatedStorage = {
       ...db.storages[idx],
       ...body,
