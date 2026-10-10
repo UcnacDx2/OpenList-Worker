@@ -125,7 +125,7 @@ test("Yun139 refreshes a near-expiry token with no Cookie header", async () => {
     assert.equal(calls[0]?.init?.credentials, "omit")
     assert.equal(sentHeaders.app_cp, "1")
     assert.equal(sentHeaders["x-yun-api-version"], "v1")
-    assert.equal(sentHeaders["x-yun-app-channel"], "10000034")
+    assert.equal(sentHeaders["x-yun-app-channel"], "10200153")
     assert.equal(sentHeaders["x-yun-market-source"], "1")
     assert.equal(sentHeaders["x-yun-module-type"], "1")
     assert.equal(sentHeaders["x-yun-client-info"], "PC")
