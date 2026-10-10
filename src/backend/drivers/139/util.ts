@@ -180,8 +180,8 @@ export class Yun139ApiClient {
   }
 
   /**
-   * Refresh the PC authorization token before it enters its final 15 days.
-   * The Worker port has no driver-level cron, so this check runs at init.
+   * Refresh before the token enters its final 15 days. Called during init and
+   * before each API request because Worker driver instances may stay cached.
    */
   private async refreshAuthorizationIfNeeded(): Promise<void> {
     const auth = this.getAuthString()
@@ -248,7 +248,9 @@ export class Yun139ApiClient {
       "x-yun-uni": userDomainId,
     }
 
-    const pcCookies = (this.addition.pc_cloud_cookies || "").trim()
+    const pcCookies = (this.addition.pc_cloud_cookies || "")
+      .trim()
+      .replace(/^cookie:\s*/i, "")
     if (pcCookies) headers.Cookie = pcCookies
 
     const response = await fetch(
@@ -273,6 +275,10 @@ export class Yun139ApiClient {
       throw new Error(
         `139 Cloud PC token refresh failed: code=${result.code || "unknown"}, message=${result.message || "empty token"}`,
       )
+    }
+    const newExpiresAt = Number(newToken.split("|")[3])
+    if (!Number.isFinite(newExpiresAt) || newExpiresAt <= Date.now()) {
+      throw new Error("139 Cloud PC refresh returned a token without a valid future expiry")
     }
 
     this.addition.authorization = CryptoJS.enc.Base64.stringify(
