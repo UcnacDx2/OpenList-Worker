@@ -997,8 +997,8 @@ async function createDriver(
             : storageConfig.addition || {}
         storageConfig.addition = JSON.stringify({
           ...configAddition,
-          authorization,
-          ...(pcCloudCookies ? { pc_cloud_cookies: pcCloudCookies } : {}),
+          ...(authorization ? { authorization } : {}),
+          ...(pcCloudCookies !== undefined ? { pc_cloud_cookies: pcCloudCookies } : {}),
         })
 
         const db = await getDb()
@@ -1010,8 +1010,8 @@ async function createDriver(
           typeof st.addition === "string"
             ? JSON.parse(st.addition || "{}")
             : st.addition || {}
-        stAddition.authorization = authorization
-        if (pcCloudCookies) stAddition.pc_cloud_cookies = pcCloudCookies
+        if (authorization) stAddition.authorization = authorization
+        if (pcCloudCookies !== undefined) stAddition.pc_cloud_cookies = pcCloudCookies
         st.addition = JSON.stringify(stAddition)
 
         // The admin update path performs its own final save; keep its input
