@@ -3040,6 +3040,20 @@ const driverConfigs: Record<string, any> = {
         required: true,
       },
       {
+        name: "user_domain_id",
+        type: "string",
+        default: "",
+        required: false,
+        help: "139 云盘用户域 ID。新 PC 刷新令牌接口要求与请求体中的 userDomainId 一致。",
+      },
+      {
+        name: "pc_cloud_cookies",
+        type: "text",
+        default: "",
+        required: false,
+        help: "可选：139 云盘 PC 客户端请求头里的 Cookie（如 mc_at、mc_bt、mc_pat、mc_pbt、mc_pac），不是 139 邮箱 mail_cookies。若刷新接口要求这些 Cookie，请在此填写。",
+      },
+      {
         name: "root_folder_id",
         type: "string",
         default: "",
