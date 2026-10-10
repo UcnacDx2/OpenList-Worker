@@ -56,10 +56,14 @@ export class Yun139ApiClient {
   public familyHost = "https://yun.139.com"
   public groupHost = "https://yun.139.com"
   public account = ""
-  private pendingAuthorization: string | null = null
+  private onAuthorizationRefresh?: (authorization: string) => Promise<void>
 
-  constructor(addition: Yun139Addition) {
+  constructor(
+    addition: Yun139Addition,
+    onAuthorizationRefresh?: (authorization: string) => Promise<void>,
+  ) {
     this.addition = addition
+    this.onAuthorizationRefresh = onAuthorizationRefresh
     this.extractAccount()
   }
 
@@ -99,12 +103,6 @@ export class Yun139ApiClient {
     return this.addition.type === "group"
   }
 
-  consumePendingAuthorization(): string | null {
-    const authorization = this.pendingAuthorization
-    this.pendingAuthorization = null
-    return authorization
-  }
-
   getHost(): string {
     if (this.isFamily()) return this.familyHost
     if (this.isGroup()) return this.groupHost
@@ -112,6 +110,10 @@ export class Yun139ApiClient {
   }
 
   async request<T = any>(uriOrUrl: string, body: any): Promise<T> {
+    // Worker driver instances are cached; check at request time as well as init
+    // so a long-lived isolate cannot miss the refresh window.
+    await this.refreshAuthorizationIfNeeded()
+
     const ts = formatTime(new Date())
     const randStr = randomString(16)
     const bodyStr = JSON.stringify(body || {})
@@ -276,8 +278,8 @@ export class Yun139ApiClient {
     this.addition.authorization = CryptoJS.enc.Base64.stringify(
       CryptoJS.enc.Utf8.parse(`${pieces[0]}:${account}:${newToken}`),
     )
-    this.pendingAuthorization = this.addition.authorization
     this.account = account
+    await this.onAuthorizationRefresh?.(this.addition.authorization)
   }
 
   async init(): Promise<void> {
