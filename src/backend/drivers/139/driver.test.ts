@@ -2,25 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { Yun139Driver } from "./driver"
 import { Yun139Addition } from "./types"
-import { calSign, mergeCookieHeader, parseSetCookieHeaders, Yun139ApiClient } from "./util"
-
-test("139 PC cookie jar merges Set-Cookie without manual input", () => {
-  assert.equal(
-    mergeCookieHeader("mc_pac=old; mc_at=old-at", [
-      "mc_pac=new; Path=/; Secure",
-      "mc_bt=new-bt; Path=/",
-      "mc_at=; Max-Age=0; Path=/",
-    ]),
-    "mc_pac=new; mc_bt=new-bt",
-  )
-
-  const headers = new Headers()
-  headers.append("set-cookie", "mc_pac=new-pac; Path=/; Secure")
-  assert.deepEqual(
-    parseSetCookieHeaders(headers),
-    ["mc_pac=new-pac; Path=/; Secure"],
-  )
-})
+import { calSign, Yun139ApiClient } from "./util"
 
 test("Yun139 calculation and signing", () => {
   const sign = calSign("{}", "2026-08-24 16:00:00", "1234567890abcdef")
@@ -78,7 +60,7 @@ test("Yun139Driver instantiation and methods", async () => {
 })
 
 
-test("Yun139 refreshes a near-expiry token without requiring response Set-Cookie", async () => {
+test("Yun139 refreshes a near-expiry token with no Cookie header", async () => {
   const expiresAt = Date.now() + 5 * 24 * 60 * 60 * 1000
   const oldToken = `old-token|1|RCS|${expiresAt}|opaque`
   const newToken = `new-token|1|RCS|${Date.now() + 30 * 24 * 60 * 60 * 1000}|opaque`
@@ -88,6 +70,8 @@ test("Yun139 refreshes a near-expiry token without requiring response Set-Cookie
     user_domain_id: "test-user-domain",
     type: "personal_new",
   }
+  // Simulate a legacy config containing PC cookies; the refresh request must ignore them.
+  ;(addition as any).pc_cloud_cookies = "mc_at=must-not-send; mc_bt=must-not-send"
 
   const originalFetch = globalThis.fetch
   const calls: Array<{ url: string; init?: RequestInit }> = []
@@ -137,9 +121,8 @@ test("Yun139 refreshes a near-expiry token without requiring response Set-Cookie
 
     const sentHeaders = calls[0]?.init?.headers as Record<string, string>
     assert.equal(sentHeaders.authorization, `Basic ${Buffer.from(`pc:${account}:${oldToken}`).toString("base64")}`)
-    assert.equal(sentHeaders.Cookie, undefined)
+    assert.equal(Object.keys(sentHeaders).some((key) => key.toLowerCase() === "cookie"), false)
     assert.equal(sentHeaders["x-yun-uni"], "test-user-domain")
-    assert.equal(addition.pc_cloud_cookies, undefined)
 
     assert.equal(
       Buffer.from(addition.authorization, "base64").toString("utf8"),
