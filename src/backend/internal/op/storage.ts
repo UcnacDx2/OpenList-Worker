@@ -124,6 +124,7 @@ async function getFTPDriver(storageConfig: any): Promise<StorageDriver> {
 const driverCache = new Map<string, StorageDriver>()
 const driverInitCache = new Map<string, Promise<StorageDriver>>()
 const cookiePersistenceCache = new Map<string, Promise<void>>()
+const authorizationPersistenceCache = new Map<string, Promise<void>>()
 const deferredTokenPersistence = new WeakSet<object>()
 
 // M-8：驱动实例缓存容量上限。storage.modified 变化会产生新 key，旧条目若不清理，
@@ -1298,6 +1299,48 @@ async function persistStorageCookie(
   }
 }
 
+async function persistStorageAuthorization(
+  storageConfig: any,
+  authorization: string,
+  requestContext?: StorageRequestContext,
+): Promise<void> {
+  const storageId = String(storageConfig?.id || "")
+  if (!storageId) return
+
+  const previous = authorizationPersistenceCache.get(storageId)
+  const task = (previous || Promise.resolve())
+    .catch(() => {})
+    .then(async () => {
+      const db = await getDb(requestContext?.env)
+      const st = (db.storages || []).find(
+        (candidate: any) => String(candidate.id) === storageId,
+      )
+      if (!st) return
+
+      const stAddition =
+        typeof st.addition === "string"
+          ? JSON.parse(st.addition || "{}")
+          : st.addition || {}
+      stAddition.authorization = authorization
+      st.addition = JSON.stringify(stAddition)
+
+      // Keep the resolved config in sync so admin update flows cannot write
+      // the old authorization back after the driver has refreshed it.
+      storageConfig.addition = st.addition
+      if (deferredTokenPersistence.has(storageConfig)) return
+      await saveDb(db, requestContext?.env)
+    })
+
+  authorizationPersistenceCache.set(storageId, task)
+  try {
+    await task
+  } finally {
+    if (authorizationPersistenceCache.get(storageId) === task) {
+      authorizationPersistenceCache.delete(storageId)
+    }
+  }
+}
+
 function isWeiyunDriver(driverName: string): boolean {
   const normDriver = (driverName || "").toLowerCase().replace(/[^a-z0-9]/g, "")
   return (
@@ -1314,6 +1357,34 @@ export async function flushPendingDriverState(
   driver: StorageDriver,
   requestContext?: StorageRequestContext,
 ): Promise<void> {
+  const normDriver = (driverName || "").toLowerCase().replace(/[^a-z0-9]/g, "")
+  const is139Driver =
+    normDriver === "139" ||
+    normDriver === "139yun" ||
+    normDriver === "caiyun" ||
+    normDriver === "hecaiyun" ||
+    normDriver.includes("139")
+
+  if (is139Driver) {
+    const consumePendingAuthorization = (
+      driver as StorageDriver & {
+        consumePendingAuthorization?: () => string | null
+      }
+    ).consumePendingAuthorization
+    const authorization = consumePendingAuthorization?.call(driver)
+    if (!authorization) return
+
+    const persistence = persistStorageAuthorization(
+      storageConfig,
+      authorization,
+      requestContext,
+    ).catch((e) => {
+      console.warn(`[${driverName}] failed to persist authorization:`, e)
+    })
+    await scheduleStoragePersistence(requestContext?.waitUntil, persistence)
+    return
+  }
+
   if (!isCloud189Driver(driverName) && !isWeiyunDriver(driverName)) return
 
   const consumePendingCookie = (
