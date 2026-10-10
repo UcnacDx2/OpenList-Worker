@@ -99,11 +99,11 @@ export class Yun139ApiClient {
   public familyHost = "https://yun.139.com"
   public groupHost = "https://yun.139.com"
   public account = ""
-  private onAuthorizationRefresh?: (authorization: string, pcCloudCookies?: string) => Promise<void>
+  private onAuthorizationRefresh?: (authorization?: string, pcCloudCookies?: string) => Promise<void>
 
   constructor(
     addition: Yun139Addition,
-    onAuthorizationRefresh?: (authorization: string, pcCloudCookies?: string) => Promise<void>,
+    onAuthorizationRefresh?: (authorization?: string, pcCloudCookies?: string) => Promise<void>,
   ) {
     this.addition = addition
     this.onAuthorizationRefresh = onAuthorizationRefresh
@@ -309,12 +309,20 @@ export class Yun139ApiClient {
 
     const responseCookies = parseSetCookieHeaders(response.headers)
     const mergedCookies = mergeCookieHeader(pcCookies, responseCookies)
-    if (mergedCookies && mergedCookies !== pcCookies) {
+    const cookieJarChanged =
+      responseCookies.length > 0 && mergedCookies !== pcCookies
+    if (cookieJarChanged) {
       this.addition.pc_cloud_cookies = mergedCookies
+    }
+    const persistCookieJar = async () => {
+      if (cookieJarChanged) {
+        await this.onAuthorizationRefresh?.(undefined, mergedCookies)
+      }
     }
 
     if (!response.ok) {
       const body = await response.text()
+      await persistCookieJar()
       throw new Error(
         `139 Cloud PC token refresh failed (${response.status}): ${body}`,
       )
@@ -323,6 +331,7 @@ export class Yun139ApiClient {
     const result = (await response.json()) as Yun139TokenRefreshResp
     const newToken = result.data?.token?.trim()
     if (!result.success || result.code !== "0000" || !newToken) {
+      await persistCookieJar()
       throw new Error(
         `139 Cloud PC token refresh failed: code=${result.code || "unknown"}, message=${result.message || "empty token"}`,
       )
@@ -336,7 +345,7 @@ export class Yun139ApiClient {
       CryptoJS.enc.Utf8.parse(`${pieces[0]}:${account}:${newToken}`),
     )
     this.account = account
-    await this.onAuthorizationRefresh?.(this.addition.authorization, this.addition.pc_cloud_cookies)
+    await this.onAuthorizationRefresh?.(this.addition.authorization, cookieJarChanged ? mergedCookies : undefined)
   }
 
   async init(): Promise<void> {
