@@ -251,6 +251,7 @@ export class Yun139ApiClient {
       "https://user-njs.yun.139.com/user/auth/refreshToken",
       {
         method: "POST",
+        // This refresh endpoint must work without inheriting any ambient session cookies.
         credentials: "omit",
         headers,
         body: JSON.stringify({ userDomainId }),
