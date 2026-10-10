@@ -13,7 +13,7 @@ export class Yun139Driver implements StorageDriver {
 
   constructor(
     addition: Yun139Addition,
-    onAuthorizationRefresh?: (authorization?: string, pcCloudCookies?: string) => Promise<void>,
+    onAuthorizationRefresh?: (authorization: string) => Promise<void>,
   ) {
     this.addition = addition
     this.client = new Yun139ApiClient(addition, onAuthorizationRefresh)
