@@ -89,7 +89,7 @@ export function mergeCookieHeader(
     }
   }
 
-  return [...cookies.entries()].map(([name, value]) => \`\${name}=\${value}\`).join("; ")
+  return [...cookies.entries()].map(([name, value]) => name + "=" + value).join("; ")
 }
 
 
@@ -257,8 +257,8 @@ export class Yun139ApiClient {
     const account = pieces[1]
     const pcVersion = "8.9.1.20260929"
     // A deterministic synthetic PC identity prevents every isolate from
-    // inventing a different device ID. The real PC cookie can be supplied
-    // through pc_cloud_cookies when the provider requires the original session.
+    // inventing a different device ID. PC cookies are kept internally only
+    // when the provider returns them; users are not asked to paste them.
     const deviceName = CryptoJS.enc.Base64.stringify(
       CryptoJS.enc.Utf8.parse("DESKTOP-OPENLIST"),
     )
