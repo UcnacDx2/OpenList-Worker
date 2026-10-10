@@ -123,7 +123,14 @@ test("Yun139 refreshes a near-expiry token with no Cookie header", async () => {
     assert.equal(sentHeaders.authorization, `Basic ${Buffer.from(`pc:${account}:${oldToken}`).toString("base64")}`)
     assert.equal(Object.keys(sentHeaders).some((key) => key.toLowerCase() === "cookie"), false)
     assert.equal(calls[0]?.init?.credentials, "omit")
-    assert.equal(sentHeaders["x-yun-uni"], "test-user-domain")
+    assert.equal(sentHeaders.app_cp, "1")
+    assert.equal(sentHeaders["x-yun-api-version"], "1.0.0")
+    assert.equal(sentHeaders["x-yun-app-channel"], "1000000001")
+    assert.equal(sentHeaders["x-yun-market-source"], "1")
+    assert.equal(sentHeaders["x-yun-module-type"], "1")
+    assert.equal(sentHeaders["x-yun-client-info"], "PC")
+    assert.equal(Object.keys(sentHeaders).some((key) => key.toLowerCase() === "x-yun-uni"), false)
+    assert.equal(Object.keys(sentHeaders).some((key) => key.toLowerCase() === "x-deviceinfo"), false)
 
     assert.equal(
       Buffer.from(addition.authorization, "base64").toString("utf8"),
