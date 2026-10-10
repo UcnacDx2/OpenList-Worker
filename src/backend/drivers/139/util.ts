@@ -251,6 +251,7 @@ export class Yun139ApiClient {
       "https://user-njs.yun.139.com/user/auth/refreshToken",
       {
         method: "POST",
+        credentials: "omit",
         headers,
         body: JSON.stringify({ userDomainId }),
       },
